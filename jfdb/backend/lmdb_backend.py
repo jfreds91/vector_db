@@ -1,7 +1,6 @@
 from jfdb.backend.backend import Backend
 from jfdb.nodes.node import Node
-from typing import Union
-import warnings
+from typing import Union, Any, Optional
 import lmdb
 import logging
 
@@ -14,14 +13,8 @@ class LMDBBackend(Backend):
 
   Not the end of the world but we can improve
   '''
-
-  def __init__(self, *args, preallocated_bytes:int=int(1e6), **kwargs):
-    super().__init__(*args, **kwargs)
-    self.env = None
-    self.preallocated_bytes = preallocated_bytes
-
-    # Ignore FutureWarning: torch.load should have weights_only=True to prevent arbitrary code execution
-    warnings.simplefilter(action='ignore', category=FutureWarning)
+  env:Optional[Any]=None  # don't bother supplying this, gets populated during init
+  preallocated_bytes:int=int(1e6)
 
   def init_backend(self):
     # Create an LMDB environment

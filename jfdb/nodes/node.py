@@ -6,6 +6,10 @@ import pickle
 import logging
 import torch
 from pydantic import validate_call, BaseModel
+import warnings
+
+# Ignore FutureWarning: torch.load should have weights_only=True to prevent arbitrary code execution
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class Node(BaseModel):
     id:str
