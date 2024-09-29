@@ -5,7 +5,7 @@ from transformers import CLIPProcessor, CLIPModel
 import random
 import torch
 from collections import deque
-from pydantic import validate_call, BaseModel
+from pydantic import validate_call, BaseModel, ConfigDict
 from PIL import Image
 
 from typing import Optional, Type, Iterable, List
@@ -15,6 +15,8 @@ from jfdb.nodes.node import Node
 from jfdb.utils import datastructures
 
 class BFSResult(BaseModel):
+    model_config=ConfigDict(arbitrary_types_allowed=True)
+
     nodes: List[Node]
     priorities: List[float]
     total_traversed_nodes: int
@@ -72,7 +74,7 @@ class DataBase():
 
         # self.entry_layer = []
         self.dense_layer = []
-        self.layers = {i:[] for i in range(self.L)}  # DEBUGGING
+        self.layers = {i:[] for i in range(self.L)}  # TODO: revisit. This was useful for debugging but it has been leaked into search logic.
 
 
     @property
@@ -314,7 +316,7 @@ class DataBase():
             candidate_nodes = bfs_results.nodes
             current_layer -= 1
 
-        logging.debug(f'Traversed {_total_traversed_nodes} during search')
+        logging.info(f'Traversed {_total_traversed_nodes} during search')
         return bfs_results.nodes[0], bfs_results.priorities[0]
 
     def probability_function(self, layer:int):

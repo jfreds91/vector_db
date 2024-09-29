@@ -1,22 +1,23 @@
 from __future__ import annotations  # allows forward reference
-from typing import Iterable
 from collections import defaultdict
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Union, Iterable
 import pickle
 import logging
 import torch
-from pydantic import validate_call, BaseModel
 import warnings
+from dataclasses import dataclass, field
 
 # Ignore FutureWarning: torch.load should have weights_only=True to prevent arbitrary code execution
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-class Node(BaseModel):
+@dataclass
+class Node():
     id:str
     layers:int
     embedding:Optional[Iterable]=None
+    # embedding:Optional[torch.Tensor]=None
     filepath:Optional[str]=None
-    layer_edges:Dict[int, List[Union[str, bytes]]] = defaultdict(list)
+    layer_edges:Dict[int, List[Union[str, bytes]]] = field(default_factory=lambda: defaultdict(list))
 
     @property
     def byte_id(self):
@@ -47,7 +48,6 @@ class Node(BaseModel):
         if _recurse:
             node.remove_edge(layer=layer, node=self, _recurse=False)
 
-    @validate_call
     def get_edges(self, layer:int) -> Union[bytes, str]:
         keys = self.layer_edges[layer]
         assert all([type(key)==bytes for key in keys])
@@ -100,3 +100,4 @@ class Node(BaseModel):
     def deserialize(cls, serialized_node:bytes) -> Node:
         obj = pickle.loads(serialized_node)
         assert isinstance(obj, cls)
+        return obj

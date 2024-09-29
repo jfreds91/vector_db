@@ -32,6 +32,7 @@ class LMDBBackend(Backend):
     with self.env.begin(write=True) as txn:
       txn.drop(db=self.env.open_db(), delete=False)
 
+    logging.warning('Emptied database index')
     # Optionally: Sync and close
     self.env.sync()
     self.env.close()
@@ -61,7 +62,7 @@ class LMDBBackend(Backend):
     map_size = self.env.info()['map_size']
 
     # Get the size of the data currently in the database
-    used_size = self.env.stat()['psize'] * self.env.stat()['leaf_pages']
+    used_size = self.env.stat()['psize'] * (self.env.stat()['leaf_pages'] + self.env.stat()['overflow_pages'])
 
     # Calculate percentage usage
     return used_size / map_size
