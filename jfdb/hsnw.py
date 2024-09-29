@@ -116,6 +116,7 @@ class DataBase():
 
         while queue:
             current_node = queue.popleft()
+            logging.debug(f'popped node {current_node} from queue')
             candidate_keys = current_node.get_edges(layer)
 
             # load from backend
@@ -128,21 +129,23 @@ class DataBase():
             if len(candidates) > 0:
                 stacked_tensors = torch.stack([i.embedding for i in candidates])
                 dot_products = torch.sum(search_node.embedding * stacked_tensors, dim=-1).tolist()
+                logging.debug(f'computed similarities: {[i for i in zip(candidates, dot_products)]}')
                 for prio, node in zip(dot_products, candidates):
                     _total_traversed_nodes += 1
 
                     if len(max_heap) == ef:
                           # only add to heap if it is better than the current worst
                         if prio > max_heap.peek_priority():
+                            logging.debug(f'Node {node} going on heap!')
                             max_heap.pop()
                             max_heap.push(prio, node)
                             queue.append(node)
                             visited.add(node)
-                        else:
-                            # append and search neighbors too
-                            max_heap.push(prio, node)
-                            queue.append(node)
-                            visited.add(node)
+                    else:
+                        # append and search neighbors too
+                        max_heap.push(prio, node)
+                        queue.append(node)
+                        visited.add(node)
         objs, prios = max_heap.dump_to_list()
         logging.debug(f"priorities found by bfs {[round(d, 2) for d in prios]}")
 
@@ -263,7 +266,7 @@ class DataBase():
         # TODO: implement
         pass
 
-    def search(self, text:Optional[str]=None, image:Optional[Image.Image]=None) -> Node:
+    def search(self, text:Optional[str]=None, image:Optional[Image.Image]=None, brute_force:bool=False, k:int=5) -> Node:
         # TODO: what if we want to return top k results?
 
         embedding = None
@@ -283,6 +286,9 @@ class DataBase():
                 embeddings = self.model.get_image_features(**im_input)
         else:
             raise ValueError('text and image cannot both be None')
+        
+        if brute_force is True:
+            return self.search_brute_force(embedding=embedding, k=k)
         return self.search_embedding(embedding)
 
     def search_embedding(self, embedding:Iterable) -> Node:
@@ -325,6 +331,23 @@ class DataBase():
         '''
         return np.exp(-layer / self.m_L) * (1 - np.exp(-1 / self.m_L))
 
-    def search_brute_force(self, embedding:Iterable):
-        # TODO: implement brute force search
-        pass
+    def search_brute_force(self, embedding:Optional[Iterable], k=5):
+        # brute force search. Just iterate through every node in layer 0
+        # loads entire layer into memory. Not scalable, but faster. Can rework
+        max_heap = datastructures.MaxHeap()
+        loaded_nodes = []
+        for key in self.layers[0]:
+            loaded_nodes.append(self.backend.read_node(key))
+
+        stacked_tensors = torch.stack([i.embedding for i in loaded_nodes])
+        dot_products = torch.sum(embedding * stacked_tensors, dim=-1).tolist()
+
+        for priority, node in zip(dot_products, loaded_nodes):
+            max_heap.push(priority, node)
+        
+        results = []
+        while len(max_heap) > 0 and len(results) < k:
+            results.append(max_heap.pop())
+        return results
+
+        

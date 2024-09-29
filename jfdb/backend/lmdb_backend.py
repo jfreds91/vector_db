@@ -48,7 +48,6 @@ class LMDBBackend(Backend):
     with self.env.begin() as txn:
       serialized_node = txn.get(key)  # Retrieve serialized data
       if serialized_node:
-        logging.debug(f'Got serialized Node: {serialized_node}')
         node = self.node_type.deserialize(serialized_node)
         logging.debug(f'Read key {node.key} from {self.env.path()}')
         return node
