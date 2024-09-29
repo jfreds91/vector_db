@@ -5,19 +5,14 @@ from typing import Optional, List, Dict, Union
 import pickle
 import logging
 import torch
-from pydantic import validate_call
+from pydantic import validate_call, BaseModel
 
-class Node():
-
-    def __init__(self, id, layers:int, embedding:Optional[Iterable]=None, filepath:Optional[str]=None,):
-        '''
-        Layer edges is the key of another Node, not the node object itself
-        '''
-        self.id=id
-        self.embedding = embedding
-        self.layers = layers
-        self.filepath = filepath
-        self.layer_edges:Dict[int, List[Union[str, bytes]]] = defaultdict(list)
+class Node(BaseModel):
+    id:str
+    layers:int
+    embedding:Optional[Iterable]=None
+    filepath:Optional[str]=None
+    layer_edges:Dict[int, List[Union[str, bytes]]] = defaultdict(list)
 
     @property
     def byte_id(self):
@@ -30,8 +25,8 @@ class Node():
     def __repr__(self):
         return self.id
 
-    @validate_call
     def add_edge(self, layer:int, node:Node, _recurse:bool=True):
+        assert isinstance(node, Node)
 
         logging.debug(f'adding {node.key} to {self} in layer {layer}')
         if node.key not in self.layer_edges[layer]:
@@ -55,7 +50,6 @@ class Node():
         return keys
 
 
-    @validate_call
     def sort_edges(self, neighbors:List[Node], method:str='distance') -> List[Node]:
         '''
         Given a start node, return a ranked ordering of edges. This will be used
@@ -66,6 +60,7 @@ class Node():
             - analyze the graph to ensure no orphans
             - return a subset of nodes with max angle between edges
         '''
+        assert all([isinstance(neighbor, Node) for neighbor in neighbors])
         # return closest neighbors
         stacked_tensors = torch.stack([i.embedding for i in neighbors])
         dot_products = torch.sum(self.embedding * stacked_tensors, dim=-1).tolist()
@@ -98,6 +93,6 @@ class Node():
         return pickle.dumps(self)
 
     @classmethod
-    @validate_call
     def deserialize(cls, serialized_node:bytes) -> Node:
-        return pickle.loads(serialized_node)
+        obj = pickle.loads(serialized_node)
+        assert isinstance(obj, cls)
