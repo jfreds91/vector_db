@@ -45,6 +45,10 @@ class LMDBBackend(Backend):
 
   def read_node(self, key:Union[str, bytes]) -> Node:
     # Retrieving the Node object from LMDB
+    # Convert string key to bytes if necessary
+    if isinstance(key, str):
+      key = key.encode('utf-8')
+    
     with self.env.begin() as txn:
       serialized_node = txn.get(key)  # Retrieve serialized data
       if serialized_node:

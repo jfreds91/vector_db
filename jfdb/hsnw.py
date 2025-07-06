@@ -283,7 +283,7 @@ class DataBase():
             # get embedding from image
             im_input = self.processor(images=image, return_tensors="pt", padding=True)
             with torch.no_grad():
-                embeddings = self.model.get_image_features(**im_input)
+                embedding = self.model.get_image_features(**im_input)[0]  # take first index since this is batched
         else:
             raise ValueError('text and image cannot both be None')
         
