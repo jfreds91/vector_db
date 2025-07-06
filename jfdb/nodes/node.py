@@ -70,7 +70,7 @@ class Node():
         dot_products = torch.sum(self.embedding * stacked_tensors, dim=-1).tolist()
 
         if method=='distance':
-            return [node for _priority, node in zip(dot_products, neighbors)]
+            return [node for _priority, node in sorted(zip(dot_products, neighbors), key=lambda x: x[0], reverse=True)]
         else:
             raise NotImplementedError(f'method: {method} is not implemented')
 
