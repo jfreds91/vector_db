@@ -100,7 +100,7 @@ class DataBase():
 
         for priority, node in zip(dot_products, start_nodes):
             max_heap.push(priority, node)
-        _total_traversed_nodes += 1
+        _total_traversed_nodes += len(start_nodes)
 
         if len(max_heap) >= ef and multi_hop is False:
             logging.debug(f'\tReached ef using search nodes only, returning early')
@@ -266,8 +266,8 @@ class DataBase():
         # TODO: implement
         pass
 
-    def search(self, text:Optional[str]=None, image:Optional[Image.Image]=None, brute_force:bool=False, k:int=5) -> Node:
-        # TODO: what if we want to return top k results?
+    def search(self, text:Optional[str]=None, image:Optional[Image.Image]=None, brute_force:bool=False, k:int=5) -> List[Node]:
+        # Returns top-k results based on the k parameter
 
         embedding = None
         if text is not None and image is not None:
@@ -286,14 +286,19 @@ class DataBase():
                 embedding = self.model.get_image_features(**im_input)[0]  # take first index since this is batched
         else:
             raise ValueError('text and image cannot both be None')
-        
+
         if brute_force is True:
             return self.search_brute_force(embedding=embedding, k=k)
-        return self.search_embedding(embedding)
+        return self.search_embedding(embedding, k=k)
 
-    def search_embedding(self, embedding:Iterable) -> Node:
-        # similar to insertion
+    def search_embedding(self, embedding:Iterable, k:int=5) -> List[Node]:
+        # similar to insertion, but returns top-k results
         _total_traversed_nodes = 0
+
+        # Check if the database is empty
+        if len(self.layers[self.entry_layer]) == 0:
+            logging.warning('Cannot search in empty database')
+            raise ValueError('Database is empty. Cannot perform search.')
 
         dummy_node = Node(
             id='tmp',
@@ -310,10 +315,12 @@ class DataBase():
 
         while current_layer >= 0:
             logging.debug(f'current_layer: {current_layer}')
+            # Use k as ef at the base layer to get top-k candidates
+            ef = k if current_layer == 0 else 1
             bfs_results = self.bfs_with_max_heap(
                 search_node=dummy_node,
                 start_nodes=candidate_nodes,
-                ef=1,
+                ef=ef,
                 layer=current_layer,
                 backend=self.backend,
                 multi_hop=True
@@ -323,7 +330,9 @@ class DataBase():
             current_layer -= 1
 
         logging.info(f'Traversed {_total_traversed_nodes} during search')
-        return bfs_results.nodes[0], bfs_results.priorities[0]
+        # Return top-k nodes from the final results
+        results = bfs_results.nodes[:k]
+        return results
 
     def probability_function(self, layer:int):
         '''
