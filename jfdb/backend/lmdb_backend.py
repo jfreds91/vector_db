@@ -36,19 +36,40 @@ class LMDBBackend(Backend):
     # Optionally: Sync and close
     self.env.sync()
     self.env.close()
+    self.env = None
 
-  def write_node(self, node:Node):
-    # Storing the Node object in LMDB using pickle
+  def write_node(self, node: Node) -> None:
+    """Persist a node to the LMDB backend.
+
+    Serializes the node using pickle and stores it with its byte-encoded ID as key.
+
+    Args:
+        node: The Node object to persist.
+
+    Raises:
+        lmdb.Error: If there's an error accessing the LMDB environment.
+    """
     with self.env.begin(write=True) as txn:
       txn.put(node.key, node.serialize())  # Store in LMDB
     logging.debug(f'Wrote key {node.key} to {self.env.path()}')
 
-  def read_node(self, key:Union[str, bytes]) -> Node:
-    # Retrieving the Node object from LMDB
-    # Convert string key to bytes if necessary
+  def read_node(self, key: Union[str, bytes]) -> Node:
+    """Retrieve a node from the LMDB backend.
+
+    Deserializes the pickled node data from storage.
+
+    Args:
+        key: Node ID as string or bytes.
+
+    Returns:
+        Node: The deserialized node, or None if not found.
+
+    Raises:
+        lmdb.Error: If there's an error accessing the LMDB environment.
+    """
     if isinstance(key, str):
       key = key.encode('utf-8')
-    
+
     with self.env.begin() as txn:
       serialized_node = txn.get(key)  # Retrieve serialized data
       if serialized_node:

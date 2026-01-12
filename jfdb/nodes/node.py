@@ -30,40 +30,89 @@ class Node():
     def __repr__(self):
         return self.id
 
-    def add_edge(self, layer:int, node:Node, _recurse:bool=True):
+    def add_edge(self, layer: int, node: Node, _recurse: bool = True) -> None:
+        """Add an edge to another node in the specified layer.
+
+        Creates a bidirectional edge by default. Use _recurse=False to create
+        unidirectional edges (for internal recursive calls).
+
+        Args:
+            layer: Layer index at which to add the edge.
+            node: Target node to connect to.
+            _recurse: If True, adds reciprocal edge on target node. Default True.
+
+        Raises:
+            AssertionError: If node is not a Node instance.
+        """
         assert isinstance(node, Node)
 
         logging.debug(f'adding {node.key} to {self} in layer {layer}')
         if node.key not in self.layer_edges[layer]:
             self.layer_edges[layer].append(node.key)
         else:
-            raise KeyError(f"{self.id} already has an edge to {node.key}!")
+            logging.warning(f"{self.id} already has an edge to {node.id}. Skipping duplicate edge.")
+            return
         if _recurse:
             node.add_edge(layer=layer, node=self, _recurse=False)
 
-    def remove_edge(self, layer:int, node:Node, _recurse:bool=True):
+    def remove_edge(self, layer: int, node: Node, _recurse: bool = True) -> None:
+        """Remove an edge to another node in the specified layer.
+
+        Removes bidirectional edges by default. Logs a warning if edge doesn't exist
+        instead of raising an exception.
+
+        Args:
+            layer: Layer index from which to remove the edge.
+            node: Target node to disconnect from.
+            _recurse: If True, removes reciprocal edge on target node. Default True.
+        """
         logging.debug(f'Removing {node.key} from {self} in layer {layer}')
 
-        self.layer_edges[layer].remove(node.key)
+        if node.key in self.layer_edges[layer]:
+            self.layer_edges[layer].remove(node.key)
+        else:
+            logging.warning(f'Attempted to remove non-existent edge from {self.id} to {node.id} in layer {layer}')
         if _recurse:
             node.remove_edge(layer=layer, node=self, _recurse=False)
 
-    def get_edges(self, layer:int) -> Union[bytes, str]:
+    def get_edges(self, layer: int) -> List[bytes]:
+        """Get all edge keys at the specified layer.
+
+        Args:
+            layer: Layer index from which to retrieve edges.
+
+        Returns:
+            List[bytes]: List of byte-encoded node IDs this node connects to at the layer.
+
+        Raises:
+            AssertionError: If any key is not of type bytes.
+        """
         keys = self.layer_edges[layer]
         assert all([type(key)==bytes for key in keys])
         return keys
 
 
-    def sort_edges(self, neighbors:List[Node], method:str='distance') -> List[Node]:
-        '''
-        Given a start node, return a ranked ordering of edges. This will be used
-        to prune edges from nodes which have too many.
+    def sort_edges(self, neighbors: List[Node], method: str = 'distance') -> List[Node]:
+        """Return neighbors ranked by similarity to this node.
 
-        The naive approach is to rank by distance metric.
-        TODO: More advanced approaches can:
-            - analyze the graph to ensure no orphans
-            - return a subset of nodes with max angle between edges
-        '''
+        Used to prune excessive edges by selecting the closest neighbors.
+
+        Args:
+            neighbors: List of neighboring nodes to rank.
+            method: Ranking method to use. Currently only 'distance' is supported. Default 'distance'.
+
+        Returns:
+            List[Node]: Neighbors sorted by similarity in descending order (most similar first).
+
+        Raises:
+            NotImplementedError: If an unsupported ranking method is specified.
+            AssertionError: If any neighbor is not a Node instance.
+
+        TODO:
+            More advanced approaches could:
+            - Analyze the graph to ensure no orphaned nodes
+            - Return a subset of nodes with maximum angle between edges
+        """
         assert all([isinstance(neighbor, Node) for neighbor in neighbors])
         # return closest neighbors
         stacked_tensors = torch.stack([i.embedding for i in neighbors])
