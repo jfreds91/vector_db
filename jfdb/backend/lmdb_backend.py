@@ -36,6 +36,7 @@ class LMDBBackend(Backend):
     # Optionally: Sync and close
     self.env.sync()
     self.env.close()
+    self.env = None
 
   def write_node(self, node:Node):
     # Storing the Node object in LMDB using pickle
