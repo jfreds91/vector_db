@@ -48,7 +48,7 @@ class Node():
         if _recurse:
             node.remove_edge(layer=layer, node=self, _recurse=False)
 
-    def get_edges(self, layer:int) -> Union[bytes, str]:
+    def get_edges(self, layer: int) -> List[bytes]:
         keys = self.layer_edges[layer]
         assert all([type(key)==bytes for key in keys])
         return keys
