@@ -37,7 +37,8 @@ class Node():
         if node.key not in self.layer_edges[layer]:
             self.layer_edges[layer].append(node.key)
         else:
-            raise KeyError(f"{self.id} already has an edge to {node.key}!")
+            logging.warning(f"{self.id} already has an edge to {node.id}. Skipping duplicate edge.")
+            return
         if _recurse:
             node.add_edge(layer=layer, node=self, _recurse=False)
 
