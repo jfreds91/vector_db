@@ -12,21 +12,41 @@ class Backend(BaseModel, ABC):
   node_type:Type[Node]=Node
 
   @abstractmethod
-  def init_backend(self):
+  def init_backend(self) -> None:
+    """Initialize the backend storage system."""
     pass
 
   @abstractmethod
-  def drop_backend(self):
+  def drop_backend(self) -> None:
+    """Drop/clear all data from the backend."""
     pass
 
   @abstractmethod
-  def write_node(self, node:Node):
+  def write_node(self, node: Node) -> None:
+    """Persist a node to the backend.
+
+    Args:
+        node: The node to write.
+    """
     pass
 
   @abstractmethod
-  def read_node(self, id:Union[str, bytes]) -> Node:
+  def read_node(self, id: Union[str, bytes]) -> Node:
+    """Retrieve a node from the backend.
+
+    Args:
+        id: The node identifier (string or bytes).
+
+    Returns:
+        The retrieved Node, or None if not found.
+    """
     pass
 
   @abstractmethod
   def get_percent_full(self) -> float:
+    """Get storage utilization percentage.
+
+    Returns:
+        Percentage of allocated storage used (0-1).
+    """
     pass

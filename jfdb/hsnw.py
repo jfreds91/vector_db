@@ -91,6 +91,22 @@ class DataBase():
         backend:Backend,
         multi_hop:bool=False
     ) -> BFSResult:
+        """Breadth-first search using a max heap to find nearest neighbors.
+
+        Performs a BFS traversal on a specific layer of the HNSW graph,
+        maintaining the top-ef closest nodes to the search node using a max heap.
+
+        Args:
+            search_node: The query node to find neighbors for.
+            start_nodes: Initial entry points for the search.
+            ef: Number of nearest neighbors to maintain in the heap.
+            layer: The layer index to search on.
+            backend: Storage backend to load nodes from.
+            multi_hop: If True, continues searching even after finding ef neighbors.
+
+        Returns:
+            BFSResult containing the top-ef nodes, their priorities, and traversal count.
+        """
         logging.debug(f'Starting bfs on layer {layer} with {len(start_nodes)} start nodes: {[sn.id for sn in start_nodes]}, ef {ef}...')
         _total_traversed_nodes = 0
         max_heap = datastructures.MaxHeap()
@@ -152,7 +168,22 @@ class DataBase():
           # TODO: consider unloading all unused nodes from memory
         return BFSResult(nodes=objs, priorities=prios, total_traversed_nodes=_total_traversed_nodes)
 
-    def insert(self, node:Node, insertion_layer:Optional[int]=None):
+    def insert(self, node: Node, insertion_layer: Optional[int] = None) -> None:
+        """Insert a new node into the HNSW graph.
+
+        Executes the two-phase HNSW insertion algorithm:
+        Phase 1: Greedy descent from entry layer to insertion layer (ef=1)
+        Phase 2: Layer-by-layer insertion from insertion layer to base layer 0,
+                 adding M edges per layer with pruning when exceeded.
+
+        Args:
+            node: The node to insert.
+            insertion_layer: Target layer for insertion. If None, randomly determined
+                           based on probability function.
+
+        Raises:
+            IndexError: If a node with the same key already exists.
+        """
         if self.backend.env.stat()['entries'] > 0:
             if self.backend.read_node(node.key) is not None:
                 raise IndexError(f'a key of {node.key} already exists in the backend')
@@ -266,7 +297,26 @@ class DataBase():
         # TODO: implement
         pass
 
-    def search(self, text:Optional[str]=None, image:Optional[Image.Image]=None, brute_force:bool=False, k:int=5) -> Node:
+    def search(self, text: Optional[str] = None, image: Optional[Image.Image] = None, brute_force: bool = False, k: int = 5) -> Node:
+        """Search for similar nodes using text or image query.
+
+        Encodes the query (text or image) using CLIP model and finds the most
+        similar node in the database using either HNSW graph traversal or
+        brute force search.
+
+        Args:
+            text: Query text. Either text or image must be provided.
+            image: Query image. Either text or image must be provided.
+            brute_force: If True, perform exhaustive search of layer 0.
+                        If False, use HNSW graph traversal (default).
+            k: Number of results to return when using brute force.
+
+        Returns:
+            The most similar node and its similarity score.
+
+        Raises:
+            ValueError: If both text and image are None, or both are provided.
+        """
         # TODO: what if we want to return top k results?
 
         embedding = None
@@ -291,7 +341,18 @@ class DataBase():
             return self.search_brute_force(embedding=embedding, k=k)
         return self.search_embedding(embedding)
 
-    def search_embedding(self, embedding:Iterable) -> Node:
+    def search_embedding(self, embedding: Iterable) -> Node:
+        """Find the closest node to a given embedding using HNSW traversal.
+
+        Starts from the entry layer and greedily descends through layers,
+        using BFS to find the nearest neighbor at each layer.
+
+        Args:
+            embedding: The query embedding to search for.
+
+        Returns:
+            Tuple of (closest_node, similarity_score).
+        """
         # similar to insertion
         _total_traversed_nodes = 0
 
@@ -325,13 +386,32 @@ class DataBase():
         logging.info(f'Traversed {_total_traversed_nodes} during search')
         return bfs_results.nodes[0], bfs_results.priorities[0]
 
-    def probability_function(self, layer:int):
-        '''
-        Probability of insertion at each layer
-        '''
+    def probability_function(self, layer: int) -> float:
+        """Calculate the probability of inserting a node at a given layer.
+
+        Uses exponential decay based on layer depth and m_L parameter.
+
+        Args:
+            layer: The layer index.
+
+        Returns:
+            Probability value between 0 and 1.
+        """
         return np.exp(-layer / self.m_L) * (1 - np.exp(-1 / self.m_L))
 
-    def search_brute_force(self, embedding:Optional[Iterable], k=5):
+    def search_brute_force(self, embedding: Optional[Iterable], k: int = 5) -> list:
+        """Perform exhaustive search across all nodes in the base layer.
+
+        Loads all nodes from layer 0 and finds the top-k closest nodes
+        using dot product similarity. Not scalable but useful for verification.
+
+        Args:
+            embedding: The query embedding to search for.
+            k: Number of top results to return.
+
+        Returns:
+            List of top-k (similarity_score, node) tuples ordered by score.
+        """
         # brute force search. Just iterate through every node in layer 0
         # loads entire layer into memory. Not scalable, but faster. Can rework
         max_heap = datastructures.MaxHeap()
