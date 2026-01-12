@@ -41,10 +41,13 @@ class Node():
         if _recurse:
             node.add_edge(layer=layer, node=self, _recurse=False)
 
-    def remove_edge(self, layer:int, node:Node, _recurse:bool=True):
+    def remove_edge(self, layer:int, node:Node, _recurse:bool=True) -> None:
         logging.debug(f'Removing {node.key} from {self} in layer {layer}')
 
-        self.layer_edges[layer].remove(node.key)
+        if node.key in self.layer_edges[layer]:
+            self.layer_edges[layer].remove(node.key)
+        else:
+            logging.warning(f'Attempted to remove non-existent edge from {self.id} to {node.id} in layer {layer}')
         if _recurse:
             node.remove_edge(layer=layer, node=self, _recurse=False)
 
